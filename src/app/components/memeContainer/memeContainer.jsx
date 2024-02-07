@@ -45,8 +45,17 @@
 
 //   return (
 //     <div>
-//       <Upload uploadImage={uploadImage} />
-//       <Memes imageData={imageData} />
+//       {/* <Upload uploadImage={uploadImage} />
+//       <Memes imageData={imageData} /> */}
+
+//       <div>
+//         <Upload uploadImage={uploadImage} />
+//         {imageData.length > 0 ? (
+//           <Memes imageData={imageData} />
+//         ) : (
+//           <p>Loading...</p>
+//         )}
+//       </div>
 //     </div>
 //   );
 // };
@@ -62,8 +71,7 @@ import Memes from "../meme/page";
 
 const MemeContainer = () => {
   const [imageData, setImageData] = useState([]);
-
-  console.log(imageData);
+  const [loading, setLoading] = useState(true); // Introduce loading state
 
   const imageListRef = ref(storage, "images/");
 
@@ -81,23 +89,24 @@ const MemeContainer = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await listAll(imageListRef);
-        const urls = await Promise.all(
-          response.items.map(async (item) => {
-            const url = await getDownloadURL(item);
-            return { name: getImageName(item.name), url };
-          })
+    listAll(imageListRef)
+      .then((response) => {
+        const promises = response.items.map((item) =>
+          getDownloadURL(item).then((url) => ({
+            name: getImageName(item.name),
+            url,
+          }))
         );
-        setImageData(urls);
-      } catch (error) {
+        Promise.all(promises).then((data) => {
+          setImageData(data);
+          setLoading(false); // Set loading state to false when data fetching completes
+        });
+      })
+      .catch((error) => {
         console.error("Error fetching image data:", error);
-      }
-    };
-
-    fetchData();
-  }, []);
+        setLoading(false); // Set loading state to false even if there's an error
+      });
+  }, []); // No dependencies to ensure it runs only once
 
   const getImageName = (fullName) => {
     return fullName.split(".")[0];
@@ -107,12 +116,10 @@ const MemeContainer = () => {
 
   return (
     <div>
-      <Upload uploadImage={uploadImage} />
-      {imageData.length > 0 ? (
-        <Memes imageData={imageData} />
-      ) : (
-        <p>Loading...</p>
-      )}
+      <div>
+        <Upload uploadImage={uploadImage} />
+        {loading ? <p>Loading...</p> : <Memes imageData={imageData} />}
+      </div>
     </div>
   );
 };
